@@ -788,3 +788,72 @@ dotnet test            # Ejecutar tests
 
 - [Documentación de API](docs/API.md) — endpoints, parámetros, respuestas y códigos de error.
 - [Guía de configuración de Supabase](docs/SUPABASE_SETUP.md) — creación del proyecto, migraciones, RLS y variables de entorno.
+```mermaid
+graph TD
+    %% Fuentes de Entrada
+    A[Usuario Rol: owner] --> B(Next.js Frontend)
+    C[Comercio Minorista] --> B
+
+    %% Capa de Aplicación/API
+    subgraph Backend .NET 8 API REST
+        B --> D[BusinessesController]
+        B --> E[ProductsController]
+    end
+
+    %% Capa de Base de Datos y Automatización
+    subgraph Supabase PostgreSQL 15
+        D --> F{Tabla profiles}
+        F --> G[(Tabla businesses)]
+        E --> H[(Tabla products)]
+        I[(Tabla districts)] --> J{Función calculate_shipping}
+        K[(Tabla district_distances)] --> J
+    end
+
+    %% Detalles Técnicos de la Fase 1
+    H -.-> L[expires_at / stock]
+    G -.-> M[owner_id / RLS policies]
+    
+    %% Estilos
+    style G fill:#f9f,stroke:#333,stroke-width:2px
+    style H fill:#f9f,stroke:#333,stroke-width:2px
+    style J fill:#ff9,stroke:#333,stroke-width:1px
+```
+
+
+
+
+```mermaid
+graph TD
+    %% Componente de Machine Learning
+    subgraph Aprendizaje Machine Learning - Python/Colab
+        A[Modelo entrenado offline] --> B((Datos Estáticos))
+        C[Pipeline de reentrenamiento] -.-> A
+    end
+
+    %% Núcleo Digital
+    subgraph Núcleo Digital .NET 8 Clean Architecture
+        subgraph ComeYa.Application
+            D[MediatR CQRS]
+            E[Commands/Handlers scaffolded]
+            F[Queries/Handlers scaffolded]
+        end
+        
+        subgraph ComeYa.Domain
+            G[Entidad Product.cs]
+        end
+    end
+
+    %% Consumo y Visualización
+    subgraph Frontend / Ejecución
+        H[Panel Admin /admin]
+        I[Lógica de Precios Dinámicos]
+    end
+
+    %% Flujos de Datos
+    B --> H
+    D --> E
+    D --> F
+    G -.-> J[original_price vs price]
+    G -.-> K[Propiedad DiscountPercentage]
+    K --> I
+    E -.-> I
