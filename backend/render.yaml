@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: comeya-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Supabase__Url
+        sync: false
+      - key: Supabase__AnonKey
+        sync: false
+      - key: ConnectionStrings__Supabase
+        sync: false
+      - key: Frontend__Url
+        sync: false

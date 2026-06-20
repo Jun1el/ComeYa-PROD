@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ComeYa.API/ComeYa.API.csproj" />
+    <Project Path="src/ComeYa.Application/ComeYa.Application.csproj" />
+    <Project Path="src/ComeYa.Domain/ComeYa.Domain.csproj" />
+    <Project Path="src/ComeYa.Infrastructure/ComeYa.Infrastructure.csproj" />
+  </Folder>
+</Solution>
