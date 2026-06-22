@@ -74,7 +74,15 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.BusinessId).HasColumnName("business_id");
             entity.Property(e => e.Name).HasColumnName("name");
             entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.Category).HasColumnName("category").HasConversion<string>();
+            entity.Property(e => e.Category)
+                  .HasColumnName("category")
+                  .HasConversion(
+                      value => value == Domain.Enums.ProductCategory.Panaderia
+                          ? "Panadería"
+                          : value.ToString(),
+                      value => value == "Panadería"
+                          ? Domain.Enums.ProductCategory.Panaderia
+                          : Enum.Parse<Domain.Enums.ProductCategory>(value, true));
             entity.Property(e => e.Price).HasColumnName("price");
             entity.Property(e => e.OriginalPrice).HasColumnName("original_price");
             entity.Property(e => e.ImageUrl).HasColumnName("image_url");
@@ -97,13 +105,25 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.CustomerId).HasColumnName("customer_id");
             entity.Property(e => e.BusinessId).HasColumnName("business_id");
-            entity.Property(e => e.Status).HasColumnName("status").HasConversion<string>();
+            entity.Property(e => e.Status)
+                  .HasColumnName("status")
+                  .HasConversion(
+                      value => value == Domain.Enums.OrderStatus.OnWay
+                          ? "onway"
+                          : value.ToString().ToLower(),
+                      value => value == "onway"
+                          ? Domain.Enums.OrderStatus.OnWay
+                          : Enum.Parse<Domain.Enums.OrderStatus>(value, true));
             entity.Property(e => e.Subtotal).HasColumnName("subtotal");
             entity.Property(e => e.ShippingCost).HasColumnName("shipping_cost");
             entity.Property(e => e.Discount).HasColumnName("discount");
             entity.Property(e => e.CouponCode).HasColumnName("coupon_code");
             entity.Property(e => e.Total).HasColumnName("total");
-            entity.Property(e => e.PaymentMethod).HasColumnName("payment_method").HasConversion<string>();
+            entity.Property(e => e.PaymentMethod)
+                  .HasColumnName("payment_method")
+                  .HasConversion(
+                      value => value.ToString().ToLower(),
+                      value => Enum.Parse<Domain.Enums.PaymentMethod>(value, true));
             entity.Property(e => e.DeliveryAddress).HasColumnName("delivery_address");
             entity.Property(e => e.DeliveryDistrict).HasColumnName("delivery_district");
             entity.Property(e => e.EstimatedDelivery).HasColumnName("estimated_delivery");
@@ -134,6 +154,7 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.Price).HasColumnName("price");
             entity.Property(e => e.Quantity).HasColumnName("quantity");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
             entity.Ignore(e => e.Subtotal);
 
             entity.HasOne(e => e.Order)

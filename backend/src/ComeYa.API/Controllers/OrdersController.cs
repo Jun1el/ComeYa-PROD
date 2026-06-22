@@ -35,15 +35,11 @@ public class OrdersController : ControllerBase
         if (userId == null)
             return Unauthorized();
 
-        var role = _currentUser.Role;
         IReadOnlyList<Order> orders;
 
-        if (role == "owner")
+        var business = await _businessRepository.GetByOwnerIdAsync(userId.Value);
+        if (business != null)
         {
-            var business = await _businessRepository.GetByOwnerIdAsync(userId.Value);
-            if (business == null)
-                return Ok(Array.Empty<object>());
-            
             orders = await _orderRepository.GetByBusinessIdAsync(business.Id);
         }
         else

@@ -7,6 +7,7 @@ export function useOrders() {
     queryKey: ['orders'],
     queryFn: () => ordersApi.getMyOrders(),
     refetchInterval: 30000,
+    retry: 1,
   });
 }
 
@@ -16,6 +17,7 @@ export function useOrder(id) {
     queryFn: () => ordersApi.getById(id),
     enabled: !!id,
     refetchInterval: 10000,
+    retry: 1,
   });
 }
 

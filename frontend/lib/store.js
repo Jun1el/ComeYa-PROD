@@ -53,7 +53,12 @@ export function StoreProvider({ children }) {
     setProducts(prev => prev.filter(p => p.id !== id));
   };
 
-  const addToCart = (id) => {
+  const addToCart = (product) => {
+    const id = typeof product === 'string' ? product : product.id;
+    const productData = typeof product === 'string'
+      ? products.find(p => p.id === id)
+      : product;
+
     setCart(prev => {
       const i = prev.findIndex(x => x.id === id);
       if (i >= 0) {
@@ -61,8 +66,14 @@ export function StoreProvider({ children }) {
         updated[i] = { ...updated[i], qty: updated[i].qty + 1 };
         return updated;
       }
-      const prod = products.find(p => p.id === id);
-      return prod ? [...prev, { id, qty: 1 }] : prev;
+      if (!productData) return prev;
+
+      return [...prev, {
+        ...productData,
+        id,
+        businessId: productData.businessId || productData.business?.id,
+        qty: 1
+      }];
     });
   };
 
@@ -389,6 +400,7 @@ export function StoreProvider({ children }) {
   };
 
   const cartDetailed = useMemo(() => cart.map(item => {
+    if (item.name) return item;
     const p = products.find(x => x.id === item.id);
     return p ? { ...p, qty: item.qty } : null;
   }).filter(Boolean), [cart, products]);

@@ -160,7 +160,7 @@ export default function ShopPage() {
                 </div>
               )}
             </div>
-            <button onClick={() => addToCart(p.id)} className="mt-2 text-xs px-2 py-1 rounded-md bg-brand-accent text-white hover:opacity-90">Agregar</button>
+            <button onClick={() => addToCart(p)} className="mt-2 text-xs px-2 py-1 rounded-md bg-brand-accent text-white hover:opacity-90">Agregar</button>
           </div>
         </div>
       </Card>
