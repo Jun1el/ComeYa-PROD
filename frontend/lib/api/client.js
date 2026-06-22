@@ -37,7 +37,22 @@ export async function apiFetch(endpoint, options = {}) {
 
     if (!res.ok) {
       const errorText = await res.text().catch(() => 'Error desconocido');
-      throw new ApiError(res.status, errorText);
+      let errorMessage = errorText;
+
+      try {
+        const errorBody = JSON.parse(errorText);
+        errorMessage = errorBody.message || errorBody.Message || errorText;
+      } catch {
+        // La respuesta no siempre es JSON.
+      }
+
+      if (res.status === 401) {
+        errorMessage = 'Tu sesión expiró o no es válida. Inicia sesión nuevamente.';
+      } else if (res.status === 403) {
+        errorMessage = 'No tienes permiso para realizar esta acción.';
+      }
+
+      throw new ApiError(res.status, errorMessage);
     }
 
     if (res.status === 204) return null;

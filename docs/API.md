@@ -56,12 +56,12 @@ Get all active products with optional filters.
 Get a single product by ID.
 
 #### POST /api/products (Auth required)
-Create a new product.
+Create a new product for the authenticated owner's business. The business is
+resolved from the JWT user and cannot be selected by the client.
 
 **Request:**
 ```json
 {
-  "businessId": "guid",
   "name": "Nuevo Producto",
   "description": "Descripción",
   "category": "Comidas",

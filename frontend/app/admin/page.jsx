@@ -8,7 +8,10 @@ import { ApiLoading } from '@/components/ApiLoading';
 
 export default function AdminPage() {
   const { isAuthenticated, profile, loading } = useAuth();
-  const { data: products, isLoading: productsLoading, error, isError } = useProducts();
+  const { data: products, isLoading: productsLoading, error, isError } = useProducts(
+    { businessId: profile?.businessId },
+    { enabled: !!profile?.businessId }
+  );
   const createProduct = useCreateProduct();
   const deleteProduct = useDeleteProduct();
   
@@ -51,7 +54,6 @@ export default function AdminPage() {
 
     try {
       await createProduct.mutateAsync({
-        businessId: profile.businessId,
         name: form.name,
         description: form.description,
         category: form.category,

@@ -3,7 +3,6 @@ using ComeYa.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
-using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,26 +48,25 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-var supabaseUrl = builder.Configuration["Supabase:Url"] ?? "";
-var supabaseKey = builder.Configuration["Supabase:AnonKey"] ?? "";
+var supabaseUrl = builder.Configuration["Supabase:Url"]?.TrimEnd('/')
+    ?? throw new InvalidOperationException("Supabase:Url no está configurado.");
+var supabaseIssuer = $"{supabaseUrl}/auth/v1";
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
-        options.RequireHttpsMetadata = false;
+        options.Authority = supabaseIssuer;
+        options.MetadataAddress = $"{supabaseIssuer}/.well-known/openid-configuration";
+        options.RequireHttpsMetadata = true;
+        options.MapInboundClaims = false;
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,
-            ValidIssuer = supabaseUrl,
+            ValidIssuer = supabaseIssuer,
             ValidateAudience = false,
             ValidateLifetime = true,
-            ValidateIssuerSigningKey = false,
-            TryAllIssuerSigningKeys = false,
-            SignatureValidator = (token, parameters) =>
-            {
-                var jwt = new Microsoft.IdentityModel.JsonWebTokens.JsonWebToken(token);
-                return jwt;
-            }
+            ValidateIssuerSigningKey = true,
+            ClockSkew = TimeSpan.FromMinutes(1)
         };
     });
 

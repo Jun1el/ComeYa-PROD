@@ -2,11 +2,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { productsApi } from '../api/products';
 
-export function useProducts(params = {}) {
+export function useProducts(params = {}, options = {}) {
   return useQuery({
     queryKey: ['products', params],
     queryFn: () => productsApi.getAll(params),
     staleTime: 1000 * 60 * 5,
+    ...options,
   });
 }
 
