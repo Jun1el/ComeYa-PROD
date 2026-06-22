@@ -1,7 +1,9 @@
 using ComeYa.Application;
 using ComeYa.Infrastructure;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -85,6 +87,33 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+app.UseExceptionHandler(errorApp =>
+{
+    errorApp.Run(async context =>
+    {
+        var exception = context.Features.Get<IExceptionHandlerFeature>()?.Error;
+        var databaseException = exception as NpgsqlException
+            ?? exception?.InnerException as NpgsqlException;
+
+        if (databaseException == null)
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            await context.Response.WriteAsJsonAsync(new
+            {
+                Message = "Ocurrió un error inesperado en el servidor."
+            });
+            return;
+        }
+
+        Log.Error(databaseException, "No se pudo conectar con PostgreSQL/Supabase");
+        context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            Message = "No se pudo conectar con la base de datos. Intenta nuevamente en unos segundos."
+        });
+    });
+});
 
 if (app.Environment.IsDevelopment())
 {

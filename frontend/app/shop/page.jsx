@@ -160,7 +160,13 @@ export default function ShopPage() {
                 </div>
               )}
             </div>
-            <button onClick={() => addToCart(p)} className="mt-2 text-xs px-2 py-1 rounded-md bg-brand-accent text-white hover:opacity-90">Agregar</button>
+            <button
+              onClick={() => addToCart(p)}
+              disabled={p.stock <= 0}
+              className="mt-2 text-xs px-2 py-1 rounded-md bg-brand-accent text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {p.stock > 0 ? `Agregar (${p.stock})` : 'Agotado'}
+            </button>
           </div>
         </div>
       </Card>

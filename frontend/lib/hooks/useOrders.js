@@ -27,6 +27,7 @@ export function useCreateOrder() {
     mutationFn: (order) => ordersApi.create(order),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
 }

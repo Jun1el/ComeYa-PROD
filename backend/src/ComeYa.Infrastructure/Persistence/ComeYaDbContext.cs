@@ -31,9 +31,17 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.Email).HasColumnName("email");
             entity.Property(e => e.FullName).HasColumnName("full_name");
-            entity.Property(e => e.Role).HasColumnName("role").HasConversion<string>();
+            entity.Property(e => e.Role)
+                  .HasColumnName("role")
+                  .HasConversion(
+                      value => value.ToString().ToLowerInvariant(),
+                      value => Enum.Parse<Domain.Enums.UserRole>(value, true));
             entity.Property(e => e.District).HasColumnName("district");
-            entity.Property(e => e.Membership).HasColumnName("membership").HasConversion<string>();
+            entity.Property(e => e.Membership)
+                  .HasColumnName("membership")
+                  .HasConversion(
+                      value => value.ToString().ToUpperInvariant(),
+                      value => Enum.Parse<Domain.Enums.Membership>(value, true));
             entity.Property(e => e.MembershipDate).HasColumnName("membership_date");
             entity.Property(e => e.BusinessName).HasColumnName("business_name");
             entity.Property(e => e.BusinessPhone).HasColumnName("business_phone");
@@ -175,7 +183,11 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.Id).HasColumnName("id");
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.SenderId).HasColumnName("sender_id");
-            entity.Property(e => e.SenderRole).HasColumnName("sender_role").HasConversion<string>();
+            entity.Property(e => e.SenderRole)
+                  .HasColumnName("sender_role")
+                  .HasConversion(
+                      value => value.ToString().ToLowerInvariant(),
+                      value => Enum.Parse<Domain.Enums.UserRole>(value, true));
             entity.Property(e => e.Content).HasColumnName("content");
             entity.Property(e => e.IsRead).HasColumnName("is_read");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
@@ -257,7 +269,13 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.MaxUses).HasColumnName("max_uses");
             entity.Property(e => e.CurrentUses).HasColumnName("current_uses");
             entity.Property(e => e.MinPurchase).HasColumnName("min_purchase");
-            entity.Property(e => e.MembershipRequired).HasColumnName("membership_required").HasConversion<string>();
+            entity.Property(e => e.MembershipRequired)
+                  .HasColumnName("membership_required")
+                  .HasConversion(
+                      value => value.HasValue ? value.Value.ToString().ToUpperInvariant() : null,
+                      value => string.IsNullOrEmpty(value)
+                          ? null
+                          : Enum.Parse<Domain.Enums.Membership>(value, true));
             entity.Property(e => e.ValidFrom).HasColumnName("valid_from");
             entity.Property(e => e.ValidUntil).HasColumnName("valid_until");
             entity.Property(e => e.IsActive).HasColumnName("is_active");

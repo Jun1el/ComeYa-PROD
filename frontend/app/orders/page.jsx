@@ -20,7 +20,7 @@ function getStatusInfo(status) {
 
 export default function OrdersPage() {
   const { isAuthenticated, loading } = useAuth();
-  const { data: orders, isLoading, error, isError } = useOrders();
+  const { data: orders, isLoading, error, isError, refetch } = useOrders();
   const cancelOrder = useCancelOrder();
   
   const [guard, setGuard] = useState(false);
@@ -54,7 +54,7 @@ export default function OrdersPage() {
       <div className="max-w-5xl mx-auto p-4">
         <h1 className="text-2xl font-bold mb-3">Mis Pedidos 📦</h1>
         
-        <ApiLoading isLoading={isLoading} isError={isError} error={error}>
+        <ApiLoading isLoading={isLoading} isError={isError} error={error} onRetry={refetch}>
           {!orders || orders.length === 0 ? (
             <Card>
               <p className="text-center text-brand-mutedDark/70">

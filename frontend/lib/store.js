@@ -59,11 +59,27 @@ export function StoreProvider({ children }) {
       ? products.find(p => p.id === id)
       : product;
 
+    if (!productData || productData.stock <= 0) {
+      alert('Este producto no tiene stock disponible.');
+      return;
+    }
+
+    const existingItem = cart.find(item => item.id === id);
+    if (existingItem && existingItem.qty >= productData.stock) {
+      alert(`Solo hay ${productData.stock} unidad(es) disponibles.`);
+      return;
+    }
+
     setCart(prev => {
       const i = prev.findIndex(x => x.id === id);
       if (i >= 0) {
         const updated = [...prev];
-        updated[i] = { ...updated[i], qty: updated[i].qty + 1 };
+        updated[i] = {
+          ...updated[i],
+          ...productData,
+          businessId: productData.businessId || productData.business?.id,
+          qty: updated[i].qty + 1
+        };
         return updated;
       }
       if (!productData) return prev;
@@ -78,7 +94,21 @@ export function StoreProvider({ children }) {
   };
 
   const removeFromCart = (id) => setCart(prev => prev.filter(x => x.id !== id));
-  const changeQty = (id, qty) => setCart(prev => prev.map(x => x.id === id ? { ...x, qty: Math.max(1, qty) } : x));
+  const changeQty = (id, qty) => {
+    const item = cart.find(product => product.id === id);
+    const maxStock = Number.isFinite(item?.stock) ? item.stock : 1;
+
+    if (qty > maxStock) {
+      alert(`Solo hay ${maxStock} unidad(es) disponibles.`);
+      return;
+    }
+
+    setCart(prev => prev.map(product =>
+      product.id === id
+        ? { ...product, qty: Math.min(maxStock, Math.max(1, qty)) }
+        : product
+    ));
+  };
   const clearCart = () => setCart([]);
 
   // Función para crear una orden (ahora crea múltiples órdenes si hay diferentes restaurantes)

@@ -51,7 +51,6 @@ export default function CartPage() {
     
     const items = cartDetailed.map(item => ({
       productId: item.id,
-      businessId: item.businessId,
       quantity: item.qty
     }));
 
@@ -110,11 +109,15 @@ export default function CartPage() {
                       <span className="w-8 text-center font-semibold">{item.qty}</span>
                       <button 
                         onClick={() => changeQty(item.id, item.qty + 1)}
-                        className="w-8 h-8 rounded-lg bg-brand-primary/20 hover:bg-brand-primary/30"
+                        disabled={item.qty >= item.stock}
+                        className="w-8 h-8 rounded-lg bg-brand-primary/20 hover:bg-brand-primary/30 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         +
                       </button>
                     </div>
+                    <p className="text-xs text-brand-mutedDark/60">
+                      Disponible: {item.stock}
+                    </p>
                     <button 
                       onClick={() => removeFromCart(item.id)}
                       className="text-red-600 hover:text-red-700"

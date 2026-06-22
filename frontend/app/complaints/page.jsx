@@ -1,13 +1,13 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
 import Nav from '@/components/Nav';
-import { currentUser } from '@/lib/auth';
-import { DEFAULT_PRODUCTS } from '@/lib/seed';
+import { useAuth } from '@/lib/supabase/auth-context';
+import { useProducts } from '@/lib/hooks/useProducts';
 
 export default function ComplaintsPage() {
+  const { user, profile, isAuthenticated, loading } = useAuth();
+  const { data: products } = useProducts();
   const [guard, setGuard] = useState(false);
-  const [user, setUser] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [myComplaints, setMyComplaints] = useState([]);
   const [formData, setFormData] = useState({
@@ -17,33 +17,23 @@ export default function ComplaintsPage() {
     orderId: '',
     businessName: ''
   });
-  const [businesses, setBusinesses] = useState([]);
   const [success, setSuccess] = useState(false);
-  const router = useRouter();
+
+  const businesses = useMemo(() => [...new Set(
+    (products || []).map(product => product.business?.name).filter(Boolean)
+  )].sort(), [products]);
   
   useEffect(() => {
-    const u = currentUser();
-    if (!u) { 
-      location.href = '/login'; 
-    } else { 
-      setGuard(true);
-      setUser(u);
-      loadMyComplaints(u.email);
-      loadBusinesses();
-    }
-  }, []);
+    if (!loading) {
+      if (!isAuthenticated) {
+        location.href = '/login';
+        return;
+      }
 
-  const loadBusinesses = () => {
-    // Obtener productos del localStorage (agregados por dueños)
-    const storedProducts = JSON.parse(localStorage.getItem('comeya_products') || '[]');
-    
-    // Combinar con productos por defecto
-    const allProducts = [...DEFAULT_PRODUCTS, ...storedProducts];
-    
-    // Extraer nombres únicos de negocios
-    const uniqueBusinesses = [...new Set(allProducts.map(p => p.businessName))].sort();
-    setBusinesses(uniqueBusinesses);
-  };
+      setGuard(true);
+      loadMyComplaints(user.email);
+    }
+  }, [isAuthenticated, loading, user]);
 
   const loadMyComplaints = (email) => {
     const complaints = JSON.parse(localStorage.getItem('comeya_complaints') || '[]');
@@ -62,9 +52,9 @@ export default function ComplaintsPage() {
     const newComplaint = {
       id: `complaint_${Date.now()}`,
       ...formData,
-      userName: user.name,
+      userName: profile?.fullName || user.email,
       userEmail: user.email,
-      userDistrict: user.district,
+      userDistrict: profile?.district || '',
       status: 'pendiente',
       createdAt: new Date().toISOString(),
       response: null,
@@ -256,9 +246,9 @@ export default function ComplaintsPage() {
               <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
                 <h3 className="font-semibold text-sm mb-2">Tus Datos de Contacto:</h3>
                 <div className="text-sm space-y-1 text-brand-mutedDark/80">
-                  <p><strong>Nombre:</strong> {user?.name}</p>
+                  <p><strong>Nombre:</strong> {profile?.fullName || user?.email}</p>
                   <p><strong>Email:</strong> {user?.email}</p>
-                  <p><strong>Distrito:</strong> {user?.district}</p>
+                  <p><strong>Distrito:</strong> {profile?.district || 'No registrado'}</p>
                 </div>
               </div>
 

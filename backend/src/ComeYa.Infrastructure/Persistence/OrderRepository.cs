@@ -17,6 +17,7 @@ public class OrderRepository : IOrderRepository
     public async Task<Order?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Customer)
             .Include(o => o.Business)
             .Include(o => o.Items)
@@ -27,6 +28,7 @@ public class OrderRepository : IOrderRepository
     public async Task<IReadOnlyList<Order>> GetByCustomerIdAsync(Guid customerId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Business)
             .Include(o => o.Items)
             .Where(o => o.CustomerId == customerId)
@@ -37,6 +39,7 @@ public class OrderRepository : IOrderRepository
     public async Task<IReadOnlyList<Order>> GetByBusinessIdAsync(Guid businessId, CancellationToken cancellationToken = default)
     {
         return await _context.Orders
+            .AsNoTracking()
             .Include(o => o.Customer)
             .Include(o => o.Items)
             .Where(o => o.BusinessId == businessId)

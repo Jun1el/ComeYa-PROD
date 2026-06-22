@@ -9,14 +9,21 @@ export function LoadingSpinner() {
   );
 }
 
-export function ApiLoading({ children, isLoading, error, isError }) {
+export function ApiLoading({ children, isLoading, error, isError, onRetry }) {
   if (isError) {
     if (error instanceof ColdStartError) {
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mb-4"></div>
-          <p className="text-gray-600">El servidor está iniciando...</p>
-          <p className="text-sm text-gray-500 mt-2">Esto puede tomar hasta 60 segundos la primera vez.</p>
+          <p className="font-semibold text-red-600">El backend no respondió a tiempo</p>
+          <p className="text-sm text-gray-500 mt-2">{error.message}</p>
+          {onRetry && (
+            <button
+              onClick={onRetry}
+              className="mt-4 px-4 py-2 rounded-lg bg-brand-accent text-white font-semibold"
+            >
+              Reintentar
+            </button>
+          )}
         </div>
       );
     }

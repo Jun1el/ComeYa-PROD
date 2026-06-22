@@ -16,6 +16,7 @@ public class ProductRepository : IProductRepository
     public async Task<Product?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
         return await _context.Products
+            .AsNoTracking()
             .Include(p => p.Business)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken);
     }
@@ -23,6 +24,7 @@ public class ProductRepository : IProductRepository
     public async Task<IReadOnlyList<Product>> GetAllAsync(CancellationToken cancellationToken = default)
     {
         return await _context.Products
+            .AsNoTracking()
             .Include(p => p.Business)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -37,6 +39,7 @@ public class ProductRepository : IProductRepository
         CancellationToken cancellationToken = default)
     {
         var query = _context.Products
+            .AsNoTracking()
             .Include(p => p.Business)
             .Where(p => p.IsActive && p.ExpiresAt > DateTime.UtcNow && p.Business.IsActive);
 
@@ -59,6 +62,7 @@ public class ProductRepository : IProductRepository
     public async Task<IReadOnlyList<Product>> GetByBusinessIdAsync(Guid businessId, CancellationToken cancellationToken = default)
     {
         return await _context.Products
+            .AsNoTracking()
             .Where(p => p.BusinessId == businessId)
             .OrderByDescending(p => p.CreatedAt)
             .ToListAsync(cancellationToken);

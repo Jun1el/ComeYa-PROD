@@ -3,6 +3,8 @@ using ComeYa.Domain.Entities;
 using ComeYa.Domain.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 
 namespace ComeYa.API.Controllers;
 
@@ -15,17 +17,20 @@ public class OrdersController : ControllerBase
     private readonly IProductRepository _productRepository;
     private readonly IBusinessRepository _businessRepository;
     private readonly ICurrentUserService _currentUser;
+    private readonly ILogger<OrdersController> _logger;
 
     public OrdersController(
         IOrderRepository orderRepository,
         IProductRepository productRepository,
         IBusinessRepository businessRepository,
-        ICurrentUserService currentUser)
+        ICurrentUserService currentUser,
+        ILogger<OrdersController> logger)
     {
         _orderRepository = orderRepository;
         _productRepository = productRepository;
         _businessRepository = businessRepository;
         _currentUser = currentUser;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -142,39 +147,73 @@ public class OrdersController : ControllerBase
         if (userId == null)
             return Unauthorized();
 
+        if (request.Items == null || request.Items.Count == 0)
+            return BadRequest(new { Message = "El pedido debe contener al menos un producto." });
+
+        if (!Enum.TryParse<PaymentMethod>(request.PaymentMethod, true, out var paymentMethod))
+            return BadRequest(new { Message = "El método de pago no es válido." });
+
+        if (request.Discount is < 0)
+            return BadRequest(new { Message = "El descuento no puede ser negativo." });
+
+        var normalizedItems = request.Items
+            .GroupBy(item => item.ProductId)
+            .Select(group => new OrderItemRequest(
+                group.Key,
+                group.Sum(item => item.Quantity)))
+            .ToList();
+
+        var validatedItems = new List<(OrderItemRequest Request, Product Product)>();
+
+        foreach (var item in normalizedItems)
+        {
+            if (item.Quantity <= 0)
+                return BadRequest(new { Message = "La cantidad de cada producto debe ser mayor que cero." });
+
+            var product = await _productRepository.GetByIdAsync(item.ProductId);
+            if (product == null || !product.IsActive || product.IsExpired)
+                return BadRequest(new { Message = "Uno de los productos ya no está disponible." });
+
+            if (product.Stock < item.Quantity)
+            {
+                return BadRequest(new
+                {
+                    Message = $"Stock insuficiente para {product.Name}. Disponible: {product.Stock}."
+                });
+            }
+
+            validatedItems.Add((item, product));
+        }
+
         var orders = new List<object>();
 
-        foreach (var businessGroup in request.Items.GroupBy(i => i.BusinessId))
+        foreach (var businessGroup in validatedItems.GroupBy(item => item.Product.BusinessId))
         {
             var business = await _businessRepository.GetByIdAsync(businessGroup.Key);
             if (business == null)
-                continue;
+                return BadRequest(new { Message = "Uno de los restaurantes ya no está disponible." });
 
             var orderItems = new List<OrderItem>();
             decimal subtotal = 0;
 
             foreach (var item in businessGroup)
             {
-                var product = await _productRepository.GetByIdAsync(item.ProductId);
-                if (product == null || product.Stock < item.Quantity)
-                    continue;
-
                 var orderItem = new OrderItem
                 {
-                    ProductId = product.Id,
-                    Name = product.Name,
-                    Price = product.Price,
-                    Quantity = item.Quantity
+                    ProductId = item.Product.Id,
+                    Name = item.Product.Name,
+                    Price = item.Product.Price,
+                    Quantity = item.Request.Quantity
                 };
                 orderItems.Add(orderItem);
                 subtotal += orderItem.Price * orderItem.Quantity;
             }
 
-            if (!orderItems.Any())
-                continue;
-
             var shippingCost = CalculateShippingCost(request.DeliveryDistrict, business.District);
             var discount = request.Discount ?? 0;
+            if (discount > subtotal)
+                return BadRequest(new { Message = "El descuento no puede superar el subtotal." });
+
             var total = subtotal + shippingCost - discount;
 
             var estimatedDelivery = DateTime.UtcNow.AddMinutes(CalculateDeliveryMinutes(request.DeliveryDistrict, business.District));
@@ -188,7 +227,7 @@ public class OrdersController : ControllerBase
                 Discount = discount,
                 CouponCode = request.CouponCode,
                 Total = total,
-                PaymentMethod = Enum.Parse<PaymentMethod>(request.PaymentMethod, true),
+                PaymentMethod = paymentMethod,
                 DeliveryAddress = request.DeliveryAddress,
                 DeliveryDistrict = request.DeliveryDistrict,
                 EstimatedDelivery = estimatedDelivery,
@@ -196,7 +235,44 @@ public class OrdersController : ControllerBase
                 Items = orderItems
             };
 
-            var created = await _orderRepository.AddAsync(order);
+            Order created;
+            try
+            {
+                created = await _orderRepository.AddAsync(order);
+            }
+            catch (DbUpdateException exception)
+            {
+                var postgresException = exception.InnerException as PostgresException;
+
+                _logger.LogError(
+                    exception,
+                    "Error al crear pedido para el usuario {UserId}. PostgreSQL {SqlState}: {DatabaseMessage}",
+                    userId.Value,
+                    postgresException?.SqlState,
+                    postgresException?.MessageText);
+
+                if (postgresException?.SqlState == "P0001")
+                {
+                    return BadRequest(new
+                    {
+                        Message = "El stock cambió mientras confirmabas el pedido. Actualiza el carrito e intenta nuevamente."
+                    });
+                }
+
+                if (postgresException?.SqlState is "23503" or "23514")
+                {
+                    return BadRequest(new
+                    {
+                        Message = "Los datos del pedido ya no son válidos. Actualiza la página e intenta nuevamente."
+                    });
+                }
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new
+                {
+                    Message = "No se pudo guardar el pedido. Revisa el log del backend para ver el error de base de datos."
+                });
+            }
+
             orders.Add(new { OrderId = created.Id, BusinessName = business.Name, Total = created.Total });
         }
 
@@ -289,7 +365,6 @@ public record CreateOrderRequest(
 
 public record OrderItemRequest(
     Guid ProductId,
-    Guid BusinessId,
     int Quantity
 );
 

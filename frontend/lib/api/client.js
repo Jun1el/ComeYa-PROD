@@ -13,7 +13,7 @@ export class ApiError extends Error {
 
 export class ColdStartError extends Error {
   constructor() {
-    super('El servidor está iniciando. Por favor espera un momento...');
+    super('El servidor tardó demasiado en responder. Verifica que el backend esté ejecutándose e intenta nuevamente.');
     this.name = 'ColdStartError';
   }
 }
@@ -50,6 +50,8 @@ export async function apiFetch(endpoint, options = {}) {
         errorMessage = 'Tu sesión expiró o no es válida. Inicia sesión nuevamente.';
       } else if (res.status === 403) {
         errorMessage = 'No tienes permiso para realizar esta acción.';
+      } else if (res.status === 503 && !errorMessage) {
+        errorMessage = 'La base de datos no está disponible temporalmente. Intenta nuevamente en unos segundos.';
       }
 
       throw new ApiError(res.status, errorMessage);

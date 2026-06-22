@@ -2,13 +2,13 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { currentUser, signOut } from '@/lib/auth';
 import NotificationBell from './NotificationBell';
 import { useStore } from '@/lib/store';
+import { useAuth } from '@/lib/supabase/auth-context';
 
 export default function Nav() {
   const pathname = usePathname();
-  const user = typeof window !== 'undefined' ? currentUser() : null;
+  const { user, profile, signOut, loading } = useAuth();
   const { cart } = useStore();
   
   // Calcular total de productos en el carrito
@@ -43,16 +43,24 @@ export default function Nav() {
           
           <Link href="/complaints" className={linkCls(pathname, '/complaints')}>Reclamos</Link>
           <Link href="/profile" className={linkCls(pathname, '/profile')}>Perfil</Link>
-          {user?.role === 'owner' && <Link href="/admin" className={linkCls(pathname, '/admin')}>Admin</Link>}
+          {profile?.role === 'owner' && <Link href="/admin" className={linkCls(pathname, '/admin')}>Admin</Link>}
           
           {/* Campanita de notificaciones */}
           {user && <NotificationBell />}
           
-          {user ? (
-            <button onClick={() => { signOut(); location.href = '/login'; }} className="ml-2 text-sm px-3 py-1 rounded-lg bg-brand-accent text-white hover:opacity-90">Salir</button>
+          {!loading && (user ? (
+            <button
+              onClick={async () => {
+                await signOut();
+                location.href = '/login';
+              }}
+              className="ml-2 text-sm px-3 py-1 rounded-lg bg-brand-accent text-white hover:opacity-90"
+            >
+              Cerrar sesión
+            </button>
           ) : (
             <Link href="/login" className="text-sm px-3 py-1 rounded-lg bg-brand-accent text-white hover:opacity-90">Entrar</Link>
-          )}
+          ))}
         </div>
       </div>
     </nav>
