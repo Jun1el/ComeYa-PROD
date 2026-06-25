@@ -5,4 +5,7 @@
     <Project Path="src/ComeYa.Domain/ComeYa.Domain.csproj" />
     <Project Path="src/ComeYa.Infrastructure/ComeYa.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ComeYa.Domain.Tests/ComeYa.Domain.Tests.csproj" />
+  </Folder>
 </Solution>

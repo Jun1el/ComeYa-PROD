@@ -1,6 +1,7 @@
 using ComeYa.Application.Common.Interfaces;
 using ComeYa.Domain.Entities;
 using ComeYa.Domain.Enums;
+using ComeYa.Domain.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -52,37 +53,35 @@ public class OrdersController : ControllerBase
             orders = await _orderRepository.GetByCustomerIdAsync(userId.Value);
         }
 
-        var result = orders.Select(o => new
-        {
-            o.Id,
-            o.BusinessId,
-            BusinessName = o.Business?.Name,
-            o.Status,
-            o.Subtotal,
-            o.ShippingCost,
-            o.Discount,
-            o.CouponCode,
-            o.Total,
-            o.PaymentMethod,
-            o.DeliveryAddress,
-            o.DeliveryDistrict,
-            o.EstimatedDelivery,
-            o.DeliveredAt,
-            o.CreatedAt,
-            Items = o.Items.Select(i => new
-            {
-                i.Id,
-                i.ProductId,
-                i.Name,
-                i.Price,
-                i.Quantity,
-                i.Subtotal
-            }),
-            MessagesCount = o.Messages?.Count ?? 0,
-            UnreadMessages = o.Messages?.Count(m => !m.IsRead) ?? 0
-        });
+        var result = orders.Select(ToOrderListResponse);
 
         return Ok(result);
+    }
+
+    [HttpGet("customer")]
+    public async Task<IActionResult> GetCustomerOrders()
+    {
+        var userId = _currentUser.UserId;
+        if (userId == null)
+            return Unauthorized();
+
+        var orders = await _orderRepository.GetByCustomerIdAsync(userId.Value);
+        return Ok(orders.Select(ToOrderListResponse));
+    }
+
+    [HttpGet("business")]
+    public async Task<IActionResult> GetBusinessOrders()
+    {
+        var userId = _currentUser.UserId;
+        if (userId == null)
+            return Unauthorized();
+
+        var business = await _businessRepository.GetByOwnerIdAsync(userId.Value);
+        if (business == null)
+            return Forbid();
+
+        var orders = await _orderRepository.GetByBusinessIdAsync(business.Id);
+        return Ok(orders.Select(ToBusinessOrderListResponse));
     }
 
     [HttpGet("{id}")]
@@ -106,16 +105,18 @@ public class OrdersController : ControllerBase
             order.BusinessId,
             BusinessName = order.Business?.Name,
             BusinessPhone = order.Business?.Phone,
-            order.Status,
+            Status = ToApiStatus(order.Status),
             order.Subtotal,
             order.ShippingCost,
             order.Discount,
             order.CouponCode,
             order.Total,
-            order.PaymentMethod,
+            PaymentMethod = order.PaymentMethod.ToString().ToLowerInvariant(),
             order.DeliveryAddress,
             order.DeliveryDistrict,
             order.EstimatedDelivery,
+            ExpiresAt = OrderStatusPolicy.GetExpiresAt(order),
+            IsExpired = OrderStatusPolicy.IsExpired(order, DateTime.UtcNow),
             order.DeliveredAt,
             order.Notes,
             order.CreatedAt,
@@ -293,7 +294,20 @@ public class OrdersController : ControllerBase
         if (order.Business?.OwnerId != userId)
             return Forbid();
 
-        var status = Enum.Parse<OrderStatus>(request.Status, true);
+        if (!TryParseOrderStatus(request.Status, out var status))
+            return BadRequest(new { Message = "El estado del pedido no es valido." });
+
+        if (OrderStatusPolicy.IsExpired(order, DateTime.UtcNow))
+            return BadRequest(new { Message = "Los productos del pedido ya vencieron. No se puede actualizar su estado." });
+
+        if (!OrderStatusPolicy.IsValidBusinessTransition(order.Status, status))
+        {
+            return BadRequest(new
+            {
+                Message = $"No se puede cambiar el pedido de {ToApiStatus(order.Status)} a {ToApiStatus(status)}."
+            });
+        }
+
         await _orderRepository.UpdateStatusAsync(id, status);
 
         return NoContent();
@@ -313,7 +327,10 @@ public class OrdersController : ControllerBase
         if (order.CustomerId != userId)
             return Forbid();
 
-        if (!order.CanBeCancelled)
+        if (OrderStatusPolicy.IsExpired(order, DateTime.UtcNow))
+            return BadRequest(new { Message = "Los productos del pedido ya vencieron. No se puede cancelar." });
+
+        if (!OrderStatusPolicy.CanCustomerCancel(order, DateTime.UtcNow))
             return BadRequest(new { Message = "La orden no puede ser cancelada" });
 
         await _orderRepository.UpdateStatusAsync(id, OrderStatus.Cancelled);
@@ -351,6 +368,81 @@ public class OrdersController : ControllerBase
         var distance = shippingCost == 4.00m ? 5.0 : shippingCost == 6.00m ? 15.0 : 30.0;
         return Math.Min(60, Math.Max(15, 15 + (int)(distance * 2)));
     }
+
+    private static object ToOrderListResponse(Order order) => new
+    {
+        order.Id,
+        order.BusinessId,
+        BusinessName = order.Business?.Name,
+        Status = OrderStatusPolicy.ToApiStatus(order.Status),
+        order.Subtotal,
+        order.ShippingCost,
+        order.Discount,
+        order.CouponCode,
+        order.Total,
+        PaymentMethod = order.PaymentMethod.ToString().ToLowerInvariant(),
+        order.DeliveryAddress,
+        order.DeliveryDistrict,
+        order.EstimatedDelivery,
+        ExpiresAt = OrderStatusPolicy.GetExpiresAt(order),
+        IsExpired = OrderStatusPolicy.IsExpired(order, DateTime.UtcNow),
+        order.DeliveredAt,
+        order.Notes,
+        order.CreatedAt,
+        Items = order.Items.Select(ToOrderItemResponse),
+        MessagesCount = order.Messages?.Count ?? 0,
+        UnreadMessages = order.Messages?.Count(m => !m.IsRead) ?? 0
+    };
+
+    private static object ToBusinessOrderListResponse(Order order) => new
+    {
+        order.Id,
+        order.CustomerId,
+        CustomerName = order.Customer?.FullName,
+        CustomerEmail = order.Customer?.Email,
+        order.BusinessId,
+        BusinessName = order.Business?.Name,
+        Status = OrderStatusPolicy.ToApiStatus(order.Status),
+        order.Subtotal,
+        order.ShippingCost,
+        order.Discount,
+        order.CouponCode,
+        order.Total,
+        PaymentMethod = order.PaymentMethod.ToString().ToLowerInvariant(),
+        order.DeliveryAddress,
+        order.DeliveryDistrict,
+        order.EstimatedDelivery,
+        ExpiresAt = OrderStatusPolicy.GetExpiresAt(order),
+        IsExpired = OrderStatusPolicy.IsExpired(order, DateTime.UtcNow),
+        order.DeliveredAt,
+        order.Notes,
+        order.CreatedAt,
+        Items = order.Items.Select(ToOrderItemResponse),
+        MessagesCount = order.Messages?.Count ?? 0,
+        UnreadMessages = order.Messages?.Count(m => !m.IsRead) ?? 0
+    };
+
+    private static object ToOrderItemResponse(OrderItem item) => new
+    {
+        item.Id,
+        item.ProductId,
+        item.Name,
+        item.Price,
+        item.Quantity,
+        item.Subtotal
+    };
+
+    private static bool TryParseOrderStatus(string? value, out OrderStatus status)
+    {
+        status = OrderStatus.Pending;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var normalized = value.Trim().Replace("_", string.Empty).Replace("-", string.Empty);
+        return Enum.TryParse(normalized, true, out status);
+    }
+
+    private static string ToApiStatus(OrderStatus status) => OrderStatusPolicy.ToApiStatus(status);
 }
 
 public record CreateOrderRequest(
