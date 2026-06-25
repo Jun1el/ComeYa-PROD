@@ -58,14 +58,18 @@ Registro digitalizado de comercios minoristas asociados (panaderías, cafetería
 
 ### Fase 2: Núcleo Digital y Aprendizaje (Procesamiento)
 
-Procesamiento inteligente de la información mediante modelos de Machine Learning para la toma de decisiones automatizadas.
+Procesamiento de información para apoyar la toma de decisiones del negocio. Como ComeYa se encuentra en una etapa inicial y todavía no cuenta con suficiente historial propio de ventas, esta fase partirá de una base de datos externa o histórica tomada de negocios similares: panaderías, cafeterías, minimarkets o tiendas de alimentos que venden productos próximos a vencer con descuentos.
+
+Ese dataset inicial servirá como referencia para analizar patrones de precio, descuento, demanda por categoría, horario de compra, distrito y cercanía al vencimiento. A partir de esos datos, el sistema podrá construir estimaciones preliminares para recomendar estrategias de venta dentro de la plataforma.
+
+El enfoque técnico será progresivo: primero se usará información histórica externa para entrenar, validar o calibrar modelos preliminares; luego, conforme los clientes compren dentro de ComeYa, los datos reales de `products`, `orders`, `order_items`, descuentos aplicados y horarios de compra alimentarán el modelo propio. De esta forma, la plataforma iniciará con conocimiento de referencia y evolucionará hacia aprendizaje basado en comportamiento real.
 
 | Requisito de negocio | Implementación técnica | Ubicación |
 |---|---|---|
-| Demand Prediction | Modelo entrenado en Python (Colab) que predice demanda por producto, zona y horario. La capa `ComeYa.Application` tiene MediatR registrado y listo para recibir handlers CQRS (`PredictDemandCommand`, `GetDemandForecastQuery`) que consuman el modelo. | `ComeYa.Application/` · `DependencyInjection.cs` |
-| Dynamic Pricing | El campo `original_price` vs `price` en `products` ya permite descuentos. La propiedad computada `DiscountPercentage` en `Product.cs` calcula el descuento actual según `expires_at`. Un handler CQRS futuro (`ApplyDynamicPricingCommand`) ajustará precios automáticamente basado en el modelo ML. | `Product.cs:DiscountPercentage` · MediatR scaffold |
-| Visualización de resultados | Panel en `/admin` que muestra métricas del modelo (predicciones vs ventas reales). Los resultados del modelo entrenado en Colab se exportan como datos estáticos y se renderizan en el frontend sin ejecutar inferencia en el navegador. | `app/admin/page.jsx` |
-| Infraestructura CQRS | MediatR ya está registrado en el contenedor DI. La carpeta `Common/Interfaces/` define los contratos. Solo falta crear las clases `Commands/`, `Queries/` y `Handlers/` dentro de `ComeYa.Application`. | `DependencyInjection.cs:AddApplication()` |
+| Predicción de demanda | Uso inicial de una base histórica externa de negocios similares para entrenar o validar un modelo preliminar. El modelo estimará probabilidad de venta considerando categoría del producto, precio, descuento, horario, distrito y cercanía a `products.expires_at`. Posteriormente, se reemplazará o ajustará con datos propios de ComeYa. | Dataset externo · `products` · `orders` · `order_items` |
+| Precios dinámicos | Análisis de descuentos históricos según tipo de producto, tiempo restante antes del vencimiento, zona y comportamiento de compra. Con esa información, el sistema podrá sugerir descuentos moderados cuando falte más tiempo y descuentos mayores cuando el vencimiento esté próximo. | `products.original_price` · `products.price` · `products.expires_at` |
+| Visualización de resultados | Panel administrativo para mostrar métricas comparativas entre estimaciones iniciales, recomendaciones de descuento y ventas reales generadas por la plataforma. El negocio podrá revisar si las recomendaciones ayudan a vender antes del vencimiento. | `app/admin/page.jsx` · futuros endpoints de analítica |
+| Aprendizaje progresivo | Los pedidos creados, productos vendidos, descuentos usados, horarios de compra, distritos y estados finales de los pedidos se almacenarán como nuevo historial para recalibrar el modelo. Mientras más se use ComeYa, mejores serán las recomendaciones de demanda y precio. | `orders` · `order_items` · `products` · `user_stats` |
 
 ### Fase 3: Ejecución y Canales (Consumo y Logística)
 
