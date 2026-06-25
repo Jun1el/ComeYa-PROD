@@ -21,6 +21,7 @@ public class OrderRepository : IOrderRepository
             .Include(o => o.Customer)
             .Include(o => o.Business)
             .Include(o => o.Items)
+                .ThenInclude(i => i.Product)
             .Include(o => o.Messages)
             .FirstOrDefaultAsync(o => o.Id == id, cancellationToken);
     }
@@ -31,6 +32,7 @@ public class OrderRepository : IOrderRepository
             .AsNoTracking()
             .Include(o => o.Business)
             .Include(o => o.Items)
+                .ThenInclude(i => i.Product)
             .Where(o => o.CustomerId == customerId)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -42,6 +44,7 @@ public class OrderRepository : IOrderRepository
             .AsNoTracking()
             .Include(o => o.Customer)
             .Include(o => o.Items)
+                .ThenInclude(i => i.Product)
             .Where(o => o.BusinessId == businessId)
             .OrderByDescending(o => o.CreatedAt)
             .ToListAsync(cancellationToken);

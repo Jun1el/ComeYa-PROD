@@ -11,6 +11,26 @@ export function useOrders() {
   });
 }
 
+export function useCustomerOrders(options = {}) {
+  return useQuery({
+    queryKey: ['orders', 'customer'],
+    queryFn: () => ordersApi.getCustomerOrders(),
+    refetchInterval: 30000,
+    retry: 1,
+    ...options,
+  });
+}
+
+export function useBusinessOrders(options = {}) {
+  return useQuery({
+    queryKey: ['orders', 'business'],
+    queryFn: () => ordersApi.getBusinessOrders(),
+    refetchInterval: 30000,
+    retry: 1,
+    ...options,
+  });
+}
+
 export function useOrder(id) {
   return useQuery({
     queryKey: ['order', id],
@@ -27,6 +47,8 @@ export function useCreateOrder() {
     mutationFn: (order) => ordersApi.create(order),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'customer'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'business'] });
       queryClient.invalidateQueries({ queryKey: ['products'] });
     },
   });
@@ -38,6 +60,8 @@ export function useUpdateOrderStatus() {
     mutationFn: ({ id, status }) => ordersApi.updateStatus(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'customer'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'business'] });
     },
   });
 }
@@ -48,6 +72,7 @@ export function useCancelOrder() {
     mutationFn: (id) => ordersApi.cancel(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['orders', 'customer'] });
     },
   });
 }

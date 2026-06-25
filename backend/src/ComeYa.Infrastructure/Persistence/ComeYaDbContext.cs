@@ -191,6 +191,7 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.Content).HasColumnName("content");
             entity.Property(e => e.IsRead).HasColumnName("is_read");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Ignore(e => e.UpdatedAt);
 
             entity.HasOne(e => e.Order)
                   .WithMany(o => o.Messages)
@@ -232,6 +233,7 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.RelatedId).HasColumnName("related_id");
             entity.Property(e => e.IsRead).HasColumnName("is_read");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Ignore(e => e.UpdatedAt);
 
             entity.HasOne(e => e.User)
                   .WithMany(p => p.Notifications)
@@ -252,6 +254,7 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.ExpiryYear).HasColumnName("expiry_year");
             entity.Property(e => e.IsDefault).HasColumnName("is_default");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Ignore(e => e.UpdatedAt);
 
             entity.HasOne(e => e.User)
                   .WithMany(p => p.PaymentCards)
@@ -280,6 +283,7 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.ValidUntil).HasColumnName("valid_until");
             entity.Property(e => e.IsActive).HasColumnName("is_active");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Ignore(e => e.UpdatedAt);
             entity.Ignore(e => e.IsValid);
         });
 
@@ -319,6 +323,7 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.ResponderId).HasColumnName("responder_id");
             entity.Property(e => e.Content).HasColumnName("content");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
+            entity.Ignore(e => e.UpdatedAt);
 
             entity.HasOne(e => e.Complaint)
                   .WithMany(c => c.Responses)
