@@ -4,5 +4,6 @@ public enum UserRole
 {
     Customer,
     Owner,
-    Admin
+    Admin,
+    SuperAdmin
 }

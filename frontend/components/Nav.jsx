@@ -11,6 +11,7 @@ export default function Nav() {
   const { user, profile, signOut, loading } = useAuth();
   const { cart } = useStore();
   const isOwner = profile?.role === 'owner';
+  const isSuperAdmin = profile?.role === 'superadmin';
   const cartItemsCount = cart.reduce((total, item) => total + item.qty, 0);
 
   return (
@@ -28,7 +29,7 @@ export default function Nav() {
         </Link>
 
         <div className="flex items-center justify-end gap-2 md:gap-3 flex-wrap">
-          {!isOwner && (
+          {!isOwner && !isSuperAdmin && (
             <>
               <Link href="/shop" className={linkCls(pathname, '/shop')}>Tienda</Link>
               <Link href="/orders" className={linkCls(pathname, '/orders')}>Mis Pedidos</Link>
@@ -50,7 +51,11 @@ export default function Nav() {
             </>
           )}
 
-          <Link href="/complaints" className={linkCls(pathname, '/complaints')}>Reclamos</Link>
+          {isSuperAdmin && (
+            <Link href="/superadmin" className={linkCls(pathname, '/superadmin')}>Superadmin</Link>
+          )}
+
+          {!isSuperAdmin && <Link href="/complaints" className={linkCls(pathname, '/complaints')}>Reclamos</Link>}
           <Link href="/profile" className={linkCls(pathname, '/profile')}>Perfil</Link>
 
           {user && <NotificationBell />}

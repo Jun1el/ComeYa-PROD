@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { useAuth } from '@/lib/supabase/auth-context';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase/client';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -20,9 +21,14 @@ export default function LoginPage() {
     try {
       const { user } = await signIn(email, password);
       if (user) {
-        const metadata = user.user_metadata || {};
-        const role = metadata.role || 'customer';
-        location.href = role === 'owner' ? '/admin' : '/shop';
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single();
+
+        const role = profile?.role || user.user_metadata?.role || 'customer';
+        location.href = role === 'superadmin' ? '/superadmin' : role === 'owner' ? '/admin' : '/shop';
       }
     } catch (err) {
       setError(err.message || 'Credenciales inválidas');
