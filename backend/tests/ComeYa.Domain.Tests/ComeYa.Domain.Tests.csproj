@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\ComeYa.Domain\ComeYa.Domain.csproj" />
+    <ProjectReference Include="..\..\src\ComeYa.Application\ComeYa.Application.csproj" />
   </ItemGroup>
 
 </Project>

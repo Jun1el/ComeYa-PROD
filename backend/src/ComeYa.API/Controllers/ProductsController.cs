@@ -1,4 +1,5 @@
 using ComeYa.Application.Common.Interfaces;
+using ComeYa.Application.Products;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -27,17 +28,98 @@ public class ProductsController : ControllerBase
         [FromQuery] string? category = null,
         [FromQuery] string? district = null,
         [FromQuery] Guid? businessId = null,
+        [FromQuery] string? q = null,
+        [FromQuery] decimal? minPrice = null,
+        [FromQuery] decimal? maxPrice = null,
+        [FromQuery] string? originDistrict = null,
+        [FromQuery] decimal? maxDistanceKm = null,
+        [FromQuery] string sort = "expires-soon",
         [FromQuery] int limit = 50,
         [FromQuery] int offset = 0)
     {
-        var products = await _productRepository.GetActiveProductsAsync(category, district, businessId, limit, offset);
+        if (minPrice < 0 || maxPrice < 0 || (minPrice.HasValue && maxPrice.HasValue && minPrice > maxPrice))
+            return BadRequest(new { Message = "El rango de precios no es válido." });
+
+        if (maxDistanceKm < 0)
+            return BadRequest(new { Message = "La distancia máxima no puede ser negativa." });
+
+        if (limit is < 1 or > 100 || offset < 0)
+            return BadRequest(new { Message = "La paginación no es válida." });
+
+        Domain.Enums.ProductCategory? parsedCategory = null;
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            if (!TryParseCategory(category, out var categoryValue))
+                return BadRequest(new { Message = "La categoría del producto no es válida." });
+            parsedCategory = categoryValue;
+        }
+
+        var allowedSorts = new[] { "expires-soon", "name-asc", "name-desc", "price-asc", "price-desc", "distance" };
+        if (!allowedSorts.Contains(sort))
+            return BadRequest(new { Message = "El criterio de ordenamiento no es válido." });
+
+        var criteria = new ProductSearchCriteria(
+            Query: q,
+            Category: parsedCategory,
+            District: district,
+            BusinessId: businessId,
+            MinPrice: minPrice,
+            MaxPrice: maxPrice,
+            OriginDistrict: originDistrict,
+            MaxDistanceKm: maxDistanceKm,
+            Sort: sort,
+            Limit: limit,
+            Offset: offset);
+
+        var products = await _productRepository.SearchActiveProductsAsync(criteria);
         
-        var result = products.Select(p => new
+        var result = products.Select(row => new
+        {
+            row.DistanceKm,
+            row.Product.Id,
+            row.Product.Name,
+            row.Product.Description,
+            Category = row.Product.Category == Domain.Enums.ProductCategory.Panaderia
+                ? "Panadería"
+                : row.Product.Category.ToString(),
+            row.Product.Price,
+            row.Product.OriginalPrice,
+            row.Product.ImageUrl,
+            row.Product.Stock,
+            row.Product.ExpiresAt,
+            row.Product.DiscountPercentage,
+            row.Product.HoursUntilExpiry,
+            Business = new
+            {
+                row.Product.Business.Id,
+                row.Product.Business.Name,
+                row.Product.Business.District,
+                row.Product.Business.Rating
+            }
+        });
+
+        return Ok(result);
+    }
+
+    /*
+        El detalle conserva el contrato existente; la distancia solo aplica al listado,
+        donde se conoce el distrito de origen de la búsqueda.
+    */
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetProduct(Guid id)
+    {
+        var p = await _productRepository.GetByIdAsync(id);
+        if (p == null)
+            return NotFound();
+
+        return Ok(new
         {
             p.Id,
             p.Name,
             p.Description,
-            Category = p.Category.ToString(),
+            Category = p.Category == Domain.Enums.ProductCategory.Panaderia
+                ? "Panadería"
+                : p.Category.ToString(),
             p.Price,
             p.OriginalPrice,
             p.ImageUrl,
@@ -51,38 +133,6 @@ public class ProductsController : ControllerBase
                 p.Business.Name,
                 p.Business.District,
                 p.Business.Rating
-            }
-        });
-
-        return Ok(result);
-    }
-
-    [HttpGet("{id}")]
-    public async Task<IActionResult> GetProduct(Guid id)
-    {
-        var product = await _productRepository.GetByIdAsync(id);
-        if (product == null)
-            return NotFound();
-
-        return Ok(new
-        {
-            product.Id,
-            product.Name,
-            product.Description,
-            Category = product.Category.ToString(),
-            product.Price,
-            product.OriginalPrice,
-            product.ImageUrl,
-            product.Stock,
-            product.ExpiresAt,
-            product.DiscountPercentage,
-            product.HoursUntilExpiry,
-            Business = new
-            {
-                product.Business.Id,
-                product.Business.Name,
-                product.Business.District,
-                product.Business.Rating
             }
         });
     }

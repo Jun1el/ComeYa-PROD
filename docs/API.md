@@ -23,6 +23,13 @@ Get all active products with optional filters.
 **Query Parameters:**
 - `category` (string): Comidas, Postres, Bebidas, Panadería
 - `district` (string): Filter by business district
+- `businessId` (UUID): filtra por establecimiento
+- `q` (string): busca por nombre, descripción o establecimiento
+- `minPrice` / `maxPrice` (decimal): rango inclusivo de precio del pack
+- `originDistrict` (string): distrito desde el cual se calcula la cercanía
+- `maxDistanceKm` (decimal): radio máximo; requiere `originDistrict`
+- `sort` (string): `expires-soon`, `name-asc`, `name-desc`, `price-asc`, `price-desc` o `distance`
+- `limit` (1-100) y `offset` (>= 0): paginación
 - `businessId` (guid): Filter by business ID
 - `limit` (int, default: 50): Max results
 - `offset` (int, default: 0): Pagination offset
@@ -42,6 +49,7 @@ Get all active products with optional filters.
     "expiresAt": "2024-12-31T23:59:59Z",
     "discountPercentage": 60,
     "hoursUntilExpiry": 5,
+    "distanceKm": 4.0,
     "business": {
       "id": "guid",
       "name": "Restaurant Sabor Peruano",

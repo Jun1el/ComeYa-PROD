@@ -19,6 +19,8 @@ public class ComeYaDbContext : DbContext
     public DbSet<PaymentCard> PaymentCards => Set<PaymentCard>();
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<UserStats> UserStats => Set<UserStats>();
+    public DbSet<District> Districts => Set<District>();
+    public DbSet<DistrictDistance> DistrictDistances => Set<DistrictDistance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +50,34 @@ public class ComeYaDbContext : DbContext
             entity.Property(e => e.AvatarUrl).HasColumnName("avatar_url");
             entity.Property(e => e.CreatedAt).HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<District>(entity =>
+        {
+            entity.ToTable("districts");
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.Name).HasColumnName("name");
+            entity.Property(e => e.IsActive).HasColumnName("is_active");
+        });
+
+        modelBuilder.Entity<DistrictDistance>(entity =>
+        {
+            entity.ToTable("district_distances");
+            entity.HasKey(e => new { e.DistrictAId, e.DistrictBId });
+            entity.Property(e => e.DistrictAId).HasColumnName("district_a_id");
+            entity.Property(e => e.DistrictBId).HasColumnName("district_b_id");
+            entity.Property(e => e.DistanceKm).HasColumnName("distance_km");
+
+            entity.HasOne(e => e.DistrictA)
+                  .WithMany()
+                  .HasForeignKey(e => e.DistrictAId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.DistrictB)
+                  .WithMany()
+                  .HasForeignKey(e => e.DistrictBId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Business>(entity =>

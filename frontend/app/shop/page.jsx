@@ -6,10 +6,10 @@ import { useAuth } from '@/lib/supabase/auth-context';
 import { useProducts } from '@/lib/hooks/useProducts';
 import { ApiLoading } from '@/components/ApiLoading';
 import { useStore } from '@/lib/store';
+import { formatRemainingTime, getProductUrgency } from '@/lib/product-urgency.mjs';
 
 export default function ShopPage() {
   const { user, profile, isAuthenticated, loading } = useAuth();
-  const { data: products, isLoading: productsLoading, error: productsError, isError } = useProducts();
   const { addToCart } = useStore();
   
   const [guard, setGuard] = useState(false);
@@ -30,50 +30,65 @@ export default function ShopPage() {
   const [selectedDistrict, setSelectedDistrict] = useState('Todos');
   const [priceRange, setPriceRange] = useState('Todos');
   const [sortBy, setSortBy] = useState('default');
+  const [distanceRadius, setDistanceRadius] = useState('Todos');
   const [viewMode, setViewMode] = useState('grid');
+  const [debouncedQ, setDebouncedQ] = useState('');
+  const [now, setNow] = useState(() => Date.now());
 
-  const categories = useMemo(() => ['Todos', ...Array.from(new Set((products || []).map(p => p.category)))], [products]);
-  const businesses = useMemo(() => ['Todos', ...Array.from(new Set((products || []).map(p => p.business?.name))).sort()], [products]);
-  const districts = useMemo(() => ['Todos', ...Array.from(new Set((products || []).map(p => p.business?.district))).sort()], [products]);
+  useEffect(() => {
+    const timeoutId = setTimeout(() => setDebouncedQ(q.trim()), 300);
+    return () => clearTimeout(timeoutId);
+  }, [q]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const priceParams = useMemo(() => {
+    if (priceRange === 'S/ 0 - 10') return { minPrice: 0, maxPrice: 10 };
+    if (priceRange === 'S/ 10 - 25') return { minPrice: 10, maxPrice: 25 };
+    if (priceRange === 'S/ 25+') return { minPrice: 25 };
+    return {};
+  }, [priceRange]);
+
+  const searchParams = useMemo(() => ({
+    ...(debouncedQ ? { q: debouncedQ } : {}),
+    ...(selectedCategory !== 'Todos' ? { category: selectedCategory } : {}),
+    ...(selectedBusiness !== 'Todos' ? { businessId: selectedBusiness } : {}),
+    ...(selectedDistrict !== 'Todos' ? { district: selectedDistrict } : {}),
+    ...priceParams,
+    ...(profile?.district ? { originDistrict: profile.district } : {}),
+    ...(profile?.district && distanceRadius !== 'Todos'
+      ? { maxDistanceKm: Number(distanceRadius) }
+      : {}),
+    sort: sortBy === 'default' ? 'expires-soon' : sortBy,
+    limit: 100,
+  }), [debouncedQ, selectedCategory, selectedBusiness, selectedDistrict, priceParams, profile?.district, distanceRadius, sortBy]);
+
+  const {
+    data: products,
+    isLoading: productsLoading,
+    error: productsError,
+    isError,
+  } = useProducts(searchParams, { refetchInterval: 60_000 });
+  const { data: filterOptions } = useProducts({ limit: 100 });
+
+  const categories = ['Todos', 'Comidas', 'Postres', 'Bebidas', 'Panadería'];
+  const businesses = useMemo(() => {
+    const uniqueBusinesses = new Map();
+    (filterOptions || []).forEach(product => {
+      if (product.business?.id) uniqueBusinesses.set(product.business.id, product.business.name);
+    });
+    return Array.from(uniqueBusinesses, ([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [filterOptions]);
+  const districts = useMemo(() => ['Todos', ...Array.from(new Set((filterOptions || []).map(p => p.business?.district).filter(Boolean))).sort()], [filterOptions]);
   const priceRanges = ['Todos', 'S/ 0 - 10', 'S/ 10 - 25', 'S/ 25+'];
   
   const filtered = useMemo(() => {
-    if (!products) return [];
-    
-    let result = products.filter(p => {
-      const okQ = (p.name + (p.description || '') + (p.business?.name || '')).toLowerCase().includes(q.toLowerCase());
-      const okC = (selectedCategory === 'Todos' || p.category === selectedCategory);
-      const okB = (selectedBusiness === 'Todos' || p.business?.name === selectedBusiness);
-      const okD = (selectedDistrict === 'Todos' || p.business?.district === selectedDistrict);
-      
-      let okP = true;
-      if (priceRange === 'S/ 0 - 10') {
-        okP = p.price <= 10;
-      } else if (priceRange === 'S/ 10 - 25') {
-        okP = p.price > 10 && p.price <= 25;
-      } else if (priceRange === 'S/ 25+') {
-        okP = p.price > 25;
-      }
-      
-      return okQ && okC && okB && okD && okP;
-    });
-
-    if (sortBy === 'name-asc') {
-      result.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortBy === 'name-desc') {
-      result.sort((a, b) => b.name.localeCompare(a.name));
-    } else if (sortBy === 'price-asc') {
-      result.sort((a, b) => a.price - b.price);
-    } else if (sortBy === 'price-desc') {
-      result.sort((a, b) => b.price - a.price);
-    } else if (sortBy === 'discount') {
-      result.sort((a, b) => (b.discountPercentage || 0) - (a.discountPercentage || 0));
-    } else if (sortBy === 'expires-soon') {
-      result.sort((a, b) => (a.hoursUntilExpiry || 999) - (b.hoursUntilExpiry || 999));
-    }
-
-    return result;
-  }, [products, q, selectedCategory, selectedBusiness, selectedDistrict, priceRange, sortBy]);
+    return (products || []).filter(product => new Date(product.expiresAt).getTime() > now);
+  }, [products, now]);
 
   const groupedByBusiness = useMemo(() => {
     const groups = {};
@@ -98,6 +113,7 @@ export default function ShopPage() {
     setSelectedDistrict('Todos');
     setPriceRange('Todos');
     setSortBy('default');
+    setDistanceRadius('Todos');
   };
 
   const activeFiltersCount = useMemo(() => {
@@ -108,10 +124,18 @@ export default function ShopPage() {
     if (selectedDistrict !== 'Todos') count++;
     if (priceRange !== 'Todos') count++;
     if (sortBy !== 'default') count++;
+    if (distanceRadius !== 'Todos') count++;
     return count;
-  }, [q, selectedCategory, selectedBusiness, selectedDistrict, priceRange, sortBy]);
+  }, [q, selectedCategory, selectedBusiness, selectedDistrict, priceRange, sortBy, distanceRadius]);
 
   const ProductCard = ({ p }) => {
+    const urgency = getProductUrgency(p.expiresAt, now);
+    const urgencyStyles = {
+      urgent: 'bg-red-100 text-red-700 animate-pulse',
+      soon: 'bg-orange-100 text-orange-700',
+      available: 'bg-green-100 text-green-700',
+    };
+
     return (
       <Card key={p.id} image={p.imageUrl}>
         <div className="flex items-start justify-between gap-3">
@@ -126,19 +150,18 @@ export default function ShopPage() {
               {p.business?.district && (
                 <div className="flex items-center gap-1">
                   <span className="text-brand-mutedDark/70">{p.business.district}</span>
+                  {p.distanceKm !== null && p.distanceKm !== undefined && (
+                    <span className="font-semibold text-brand-accent">• {Number(p.distanceKm).toFixed(1)} km</span>
+                  )}
                 </div>
               )}
-              {p.hoursUntilExpiry && (
+              {urgency.key !== 'expired' && (
                 <div className="flex items-center gap-1 mt-1">
-                  <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold flex items-center gap-1 ${
-                    p.hoursUntilExpiry <= 1 ? 'bg-red-100 text-red-700 animate-pulse' :
-                    p.hoursUntilExpiry <= 3 ? 'bg-orange-100 text-orange-700' :
-                    'bg-yellow-100 text-yellow-700'
-                  }`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-lg font-semibold flex items-center gap-1 ${urgencyStyles[urgency.key]}`}>
                     <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    Vence en {p.hoursUntilExpiry}h
+                    {urgency.label} • {formatRemainingTime(urgency.remainingMs)}
                   </span>
                 </div>
               )}
@@ -288,7 +311,8 @@ export default function ShopPage() {
                     value={selectedBusiness} 
                     onChange={e => setSelectedBusiness(e.target.value)}
                   >
-                    {businesses.map(b => <option key={b}>{b}</option>)}
+                    <option value="Todos">Todos</option>
+                    {businesses.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
                 </div>
 
@@ -315,6 +339,25 @@ export default function ShopPage() {
                 </div>
 
                 <div>
+                  <label className="block text-sm font-semibold mb-2">Cercanía</label>
+                  <select
+                    className="w-full px-3 py-2 rounded-lg border border-black/10 focus:border-brand-accent focus:outline-none text-sm disabled:opacity-50"
+                    value={distanceRadius}
+                    onChange={e => setDistanceRadius(e.target.value)}
+                    disabled={!profile?.district}
+                  >
+                    <option value="Todos">Sin límite</option>
+                    <option value="0">Mismo distrito</option>
+                    <option value="5">Hasta 5 km</option>
+                    <option value="10">Hasta 10 km</option>
+                    <option value="20">Hasta 20 km</option>
+                  </select>
+                  {!profile?.district && (
+                    <p className="mt-1 text-xs text-brand-mutedDark/60">Agrega tu distrito en el perfil para usar cercanía.</p>
+                  )}
+                </div>
+
+                <div>
                   <label className="block text-sm font-semibold mb-2">Ordenar por</label>
                   <select 
                     className="w-full px-3 py-2 rounded-lg border border-black/10 focus:border-brand-accent focus:outline-none text-sm" 
@@ -327,7 +370,7 @@ export default function ShopPage() {
                     <option value="name-desc">Nombre (Z-A)</option>
                     <option value="price-asc">Precio (menor a mayor)</option>
                     <option value="price-desc">Precio (mayor a menor)</option>
-                    <option value="discount">Mayor descuento</option>
+                    <option value="distance" disabled={!profile?.district}>Más cercanos</option>
                   </select>
                 </div>
               </div>
