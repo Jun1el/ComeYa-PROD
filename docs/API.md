@@ -63,6 +63,11 @@ Get all active products with optional filters.
 #### GET /api/products/{id}
 Get a single product by ID.
 
+#### GET /api/products/mine (Auth required)
+Devuelve todo el inventario del negocio del propietario autenticado, incluyendo
+productos publicados, agotados, vencidos e inactivos. Cada elemento incluye el campo
+`status`: `published`, `attention` o `inactive`.
+
 #### POST /api/products (Auth required)
 Create a new product for the authenticated owner's business. The business is
 resolved from the JWT user and cannot be selected by the client.
@@ -82,7 +87,10 @@ resolved from the JWT user and cannot be selected by the client.
 ```
 
 #### PUT /api/products/{id} (Auth required)
-Update an existing product.
+Actualiza únicamente un producto perteneciente al negocio autenticado. Admite nombre,
+descripción, categoría, precios, imagen, stock, vencimiento y estado activo. El cliente
+debe enviar `expectedStock`; si el stock cambió durante la edición, responde `409` sin
+sobrescribir la compra concurrente.
 
 #### DELETE /api/products/{id} (Auth required)
 Soft delete a product (sets isActive = false).

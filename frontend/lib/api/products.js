@@ -21,6 +21,8 @@ export const productsApi = {
 
   getById: (id) => api.get(`/api/products/${id}`),
 
+  getMine: () => api.get('/api/products/mine'),
+
   create: (product) => api.post('/api/products', product),
 
   update: (id, product) => api.put(`/api/products/${id}`, product),

@@ -138,6 +138,46 @@ public class ProductsController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("mine")]
+    public async Task<IActionResult> GetMyProducts()
+    {
+        var userId = _currentUser.UserId;
+        if (userId == null)
+            return Unauthorized();
+
+        var business = await _businessRepository.GetByOwnerIdAsync(userId.Value);
+        if (business == null)
+            return Forbid();
+
+        var products = await _productRepository.GetByBusinessIdAsync(business.Id);
+        var now = DateTime.UtcNow;
+
+        return Ok(products.Select(p => new
+        {
+            p.Id,
+            p.BusinessId,
+            p.Name,
+            p.Description,
+            Category = p.Category == Domain.Enums.ProductCategory.Panaderia
+                ? "Panadería"
+                : p.Category.ToString(),
+            p.Price,
+            p.OriginalPrice,
+            p.ImageUrl,
+            p.Stock,
+            p.ExpiresAt,
+            p.IsActive,
+            p.CreatedAt,
+            p.UpdatedAt,
+            Status = !p.IsActive
+                ? "inactive"
+                : p.Stock <= 0 || p.ExpiresAt <= now
+                    ? "attention"
+                    : "published"
+        }));
+    }
+
+    [Authorize]
     [HttpPost]
     public async Task<IActionResult> CreateProduct([FromBody] CreateProductRequest request)
     {
@@ -161,11 +201,17 @@ public class ProductsController : ControllerBase
         if (request.Price <= 0 || request.OriginalPrice <= 0)
             return BadRequest(new { Message = "Los precios deben ser mayores que cero." });
 
+        if (request.OriginalPrice < request.Price)
+            return BadRequest(new { Message = "El precio original debe ser mayor o igual al precio de venta." });
+
         if (request.Stock < 0)
             return BadRequest(new { Message = "El stock no puede ser negativo." });
 
         if (request.ExpiresAt <= DateTime.UtcNow)
             return BadRequest(new { Message = "La fecha de vencimiento debe ser futura." });
+
+        if (!IsValidImageUrl(request.ImageUrl))
+            return BadRequest(new { Message = "La URL de imagen debe usar http o https." });
 
         var product = new Domain.Entities.Product
         {
@@ -212,6 +258,10 @@ public class ProductsController : ControllerBase
         if (product.Business.OwnerId != userId.Value)
             return Forbid();
 
+        var currentStock = product.Stock;
+
+        if (request.Name != null && string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(new { Message = "El nombre del producto es obligatorio." });
         if (request.Price.HasValue && request.Price.Value <= 0)
             return BadRequest(new { Message = "El precio debe ser mayor que cero." });
         if (request.OriginalPrice.HasValue && request.OriginalPrice.Value <= 0)
@@ -221,10 +271,23 @@ public class ProductsController : ControllerBase
         if (request.ExpiresAt.HasValue && request.ExpiresAt.Value <= DateTime.UtcNow)
             return BadRequest(new { Message = "La fecha de vencimiento debe ser futura." });
 
+        Domain.Enums.ProductCategory? category = null;
+        if (request.Category != null)
+        {
+            if (!TryParseCategory(request.Category, out var parsedCategory))
+                return BadRequest(new { Message = "La categoría del producto no es válida." });
+            category = parsedCategory;
+        }
+
+        if (!IsValidImageUrl(request.ImageUrl))
+            return BadRequest(new { Message = "La URL de imagen debe usar http o https." });
+
         if (!string.IsNullOrEmpty(request.Name))
             product.Name = request.Name.Trim();
         if (request.Description != null)
-            product.Description = request.Description;
+            product.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        if (category.HasValue)
+            product.Category = category.Value;
         if (request.Price.HasValue)
             product.Price = request.Price.Value;
         if (request.OriginalPrice.HasValue)
@@ -233,8 +296,22 @@ public class ProductsController : ControllerBase
             product.Stock = request.Stock.Value;
         if (request.ExpiresAt.HasValue)
             product.ExpiresAt = request.ExpiresAt.Value;
+        if (request.ImageUrl != null)
+            product.ImageUrl = string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim();
+        if (request.IsActive.HasValue)
+            product.IsActive = request.IsActive.Value;
 
-        await _productRepository.UpdateAsync(product);
+        if (product.OriginalPrice < product.Price)
+            return BadRequest(new { Message = "El precio original debe ser mayor o igual al precio de venta." });
+
+        if (request.IsActive == true && (product.Stock <= 0 || product.ExpiresAt <= DateTime.UtcNow))
+            return BadRequest(new { Message = "Para republicar, el producto debe tener stock y vencimiento futuro." });
+
+        var expectedStock = request.ExpectedStock ?? currentStock;
+        var updated = await _productRepository.TryUpdateAsync(product, expectedStock);
+        if (!updated)
+            return Conflict(new { Message = "El stock cambió mientras editabas. Recarga el producto antes de guardar." });
+
         return NoContent();
     }
 
@@ -269,6 +346,15 @@ public class ProductsController : ControllerBase
 
         return Enum.TryParse(normalizedCategory, ignoreCase: true, out parsedCategory);
     }
+
+    private static bool IsValidImageUrl(string? imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl))
+            return true;
+
+        return Uri.TryCreate(imageUrl.Trim(), UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
+    }
 }
 
 public record CreateProductRequest(
@@ -285,8 +371,12 @@ public record CreateProductRequest(
 public record UpdateProductRequest(
     string? Name,
     string? Description,
+    string? Category,
     decimal? Price,
     decimal? OriginalPrice,
+    string? ImageUrl,
     int? Stock,
-    DateTime? ExpiresAt
+    DateTime? ExpiresAt,
+    bool? IsActive,
+    int? ExpectedStock
 );

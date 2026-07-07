@@ -99,11 +99,27 @@ public class ProductRepository : IProductRepository
         return product;
     }
 
-    public async Task UpdateAsync(Product product, CancellationToken cancellationToken = default)
+    public async Task<bool> TryUpdateAsync(
+        Product product,
+        int expectedStock,
+        CancellationToken cancellationToken = default)
     {
-        product.UpdatedAt = DateTime.UtcNow;
-        _context.Products.Update(product);
-        await _context.SaveChangesAsync(cancellationToken);
+        var updatedAt = DateTime.UtcNow;
+        var affectedRows = await _context.Products
+            .Where(p => p.Id == product.Id && p.Stock == expectedStock)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(p => p.Name, product.Name)
+                .SetProperty(p => p.Description, product.Description)
+                .SetProperty(p => p.Category, product.Category)
+                .SetProperty(p => p.Price, product.Price)
+                .SetProperty(p => p.OriginalPrice, product.OriginalPrice)
+                .SetProperty(p => p.ImageUrl, product.ImageUrl)
+                .SetProperty(p => p.Stock, product.Stock)
+                .SetProperty(p => p.ExpiresAt, product.ExpiresAt)
+                .SetProperty(p => p.IsActive, product.IsActive)
+                .SetProperty(p => p.UpdatedAt, updatedAt), cancellationToken);
+
+        return affectedRows == 1;
     }
 
     public async Task DeleteAsync(Guid id, CancellationToken cancellationToken = default)

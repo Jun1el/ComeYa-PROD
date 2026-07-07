@@ -19,6 +19,11 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\ComeYa.Domain\ComeYa.Domain.csproj" />
     <ProjectReference Include="..\..\src\ComeYa.Application\ComeYa.Application.csproj" />
+    <ProjectReference Include="..\..\src\ComeYa.API\ComeYa.API.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
 </Project>

@@ -10,6 +10,6 @@ public interface IProductRepository
     Task<IReadOnlyList<ProductSearchResult>> SearchActiveProductsAsync(ProductSearchCriteria criteria, CancellationToken cancellationToken = default);
     Task<IReadOnlyList<Product>> GetByBusinessIdAsync(Guid businessId, CancellationToken cancellationToken = default);
     Task<Product> AddAsync(Product product, CancellationToken cancellationToken = default);
-    Task UpdateAsync(Product product, CancellationToken cancellationToken = default);
+    Task<bool> TryUpdateAsync(Product product, int expectedStock, CancellationToken cancellationToken = default);
     Task DeleteAsync(Guid id, CancellationToken cancellationToken = default);
 }

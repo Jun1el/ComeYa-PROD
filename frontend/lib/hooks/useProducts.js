@@ -19,6 +19,15 @@ export function useProduct(id) {
   });
 }
 
+export function useMyProducts(options = {}) {
+  return useQuery({
+    queryKey: ['products', 'mine'],
+    queryFn: productsApi.getMine,
+    staleTime: 1000 * 30,
+    ...options,
+  });
+}
+
 export function useCreateProduct() {
   const queryClient = useQueryClient();
   return useMutation({
