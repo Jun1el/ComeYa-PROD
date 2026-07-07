@@ -53,7 +53,8 @@ export default function AdminPage() {
   const [republishing, setRepublishing] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
 
-  const productsQuery = useMyProducts({ enabled: guard && !!profile?.businessId });
+  // El backend resuelve el negocio desde el JWT; no dependemos de la relación embebida del perfil.
+  const productsQuery = useMyProducts({ enabled: guard });
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
